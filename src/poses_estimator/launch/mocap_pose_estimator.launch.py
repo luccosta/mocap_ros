@@ -12,7 +12,7 @@ def generate_launch_description():
     config_file = PathJoinSubstitution(
         [pose_estimator_pkg,
         'config',
-        'clouds.yaml']
+        'clouds_mobile_robots.yaml']
     )
 
     rviz_config_file = PathJoinSubstitution(
