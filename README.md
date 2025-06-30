@@ -90,7 +90,7 @@ ros2 run poses_estimator moving_cloud_pub
 Defined in:
 `src/poses_estimator/config/clouds.yaml`
 
-Each entry describes a small 3D point cloud, e.g.:
+Each entry describes a small 3D point cloud for the constelation applied to a robot or target, the distances should be measured from the point of interest and the constelation should always contain one marker right on top of the point of interest (for robots the base link), e.g.:
 
 ```yaml
 clouds:
