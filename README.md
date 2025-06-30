@@ -5,37 +5,22 @@ This ROS 2 project implements a full pipeline to estimate 6-DoF poses using the 
 > This project was developed in parallel with the [VirtualMoCap](https://github.com/loolirer/VirtualMoCap) project at the same research lab.
 > While VirtualMoCap provides a simulated multi-agent motion capture system, this project focuses on pose estimation through geometric alignment.
 
-### ✅ Features
+## Packages
 
-* 📡 **`mocap_ros_driver`** (Python): Receives point clouds via UDP and publishes them as `sensor_msgs/msg/PointCloud2`.
-* 📐 **`poses_estimator`** (C++): Runs ICP between the received cloud and reference clouds defined in YAML.
-* 🧪 Includes a test publisher (`moving_cloud_pub.py`) for synthetic motion.
-* 📦 Clean ROS 2 package structure with Docker support.
-* 🖼️ RViz2 visualization integrated via launch file.
+### `mocap_ros_driver`
 
----
+* Language: Python
+* Role: Receives and publishes `PointCloud2` via UDP.
 
-## 🧱 Project Structure
+### `poses_estimator`
 
-```
-.
-├── Dockerfile
-├── entrypoint.sh
-├── src/
-│   ├── mocap_ros_driver/      # Python UDP-to-PointCloud2 node
-│   │   ├── mocap_ros_driver/  # Python module
-│   │   └── setup.py, package.xml, etc.
-│   └── poses_estimator/       # C++ ICP implementation
-│       ├── src/               # C++ code
-│       ├── config/            # YAML clouds and RViz config
-│       ├── launch/            # ROS 2 launch files
-│       ├── test/              # Dynamic cloud publisher for testing
-│       └── package.xml, CMakeLists.txt, README.md
-```
+* Language: C++
+* Role: Receives cloud, performs ICP using PCL, publishes resulting transforms.
+* Includes: test publishers, RViz config, and YAML cloud references.
 
 ---
 
-## 🐳 Docker Setup
+## Docker Setup
 
 ### 1. Allow GUI forwarding (once per host)
 
@@ -128,23 +113,8 @@ These are used as static references for ICP.
 
 ---
 
-## Packages
-
-### `mocap_ros_driver`
-
-* Language: Python
-* Role: Receives and publishes `PointCloud2` via UDP.
-
-### `poses_estimator`
-
-* Language: C++
-* Role: Receives cloud, performs ICP using PCL, publishes resulting transforms.
-* Includes: test publishers, RViz config, and YAML cloud references.
-
----
-
 Let me know if you'd like this split into multiple `README.md` files per package, or if you want it in Markdown format with collapsible sections, badges, or GitHub Actions CI integration.
 
 ## Related Project
 
-* **VirtualMoCap** – Simulated motion capture framework developed in the same lab: [https://github.com/loolirer/VirtualMoCap](https://github.com/loolirer/VirtualMoCap)
+* **VirtualMoCap** – Simulated motion capture framework developed in the same lab: [VirtualMoCap](https://github.com/loolirer/VirtualMoCap)
