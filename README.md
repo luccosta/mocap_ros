@@ -1,6 +1,6 @@
 # MoCap ROS driver and ICP Pose Estimator 
 
-This ROS 2 project implements a full pipeline to estimate 6-DoF poses using the **Iterative Closest Point (ICP)** algorithm, combining **C++ (PCL)** for backend registration with **Python**-based 3D data streaming over UDP. The system is designed for real-time localization of robots or markers based on raw point clouds.
+This ROS 2 project implements a full pipeline to estimate 6-DoF poses, combining C++ for backend registration with Python-based data streaming over UDP. The system is designed for real-time localization of robots or markers based on raw point clouds from the MoCap system.
 
 > This project was developed in parallel with the [VirtualMoCap](https://github.com/loolirer/VirtualMoCap) project at the same research lab.
 > While VirtualMoCap provides a simulated multi-agent motion capture system, this project focuses on pose estimation through geometric alignment.
@@ -10,15 +10,13 @@ This ROS 2 project implements a full pipeline to estimate 6-DoF poses using the 
 ### `mocap_ros_driver`
 
 * Language: Python
-* Role: Receives and publishes `PointCloud2` via UDP.
+* Role: Publishes `PointCloud2` via UDP.
 
 ### `poses_estimator`
 
 * Language: C++
 * Role: Receives cloud, performs ICP using PCL, publishes resulting transforms.
 * Includes: test publishers, RViz config, and YAML cloud references.
-
----
 
 ## Docker Setup
 
@@ -71,8 +69,6 @@ This will launch:
 * `pointcloud_to_poses.cpp` – Runs ICP with stored references.
 * RViz – Displays point clouds and resulting pose transforms.
 
----
-
 ## Access the Running Container
 
 From a second terminal:
@@ -81,8 +77,6 @@ From a second terminal:
 docker exec -it icp_container bash
 ```
 
----
-
 ## Test Publisher
 
 To simulate point clouds in motion (useful for development or demo):
@@ -90,8 +84,6 @@ To simulate point clouds in motion (useful for development or demo):
 ```bash
 ros2 run poses_estimator moving_cloud_pub
 ```
-
----
 
 ## Reference YAML: `clouds.yaml`
 
@@ -110,10 +102,6 @@ clouds:
 ```
 
 These are used as static references for ICP.
-
----
-
-Let me know if you'd like this split into multiple `README.md` files per package, or if you want it in Markdown format with collapsible sections, badges, or GitHub Actions CI integration.
 
 ## Related Project
 
