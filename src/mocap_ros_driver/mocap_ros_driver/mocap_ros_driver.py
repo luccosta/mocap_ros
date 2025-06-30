@@ -17,14 +17,14 @@ class MocapRosDriver(Node):
         self.sock.bind((self.udp_ip, self.udp_port))
         self.sock.setblocking(False)
 
-        self.publisher = self.create_publisher(PointCloud2, 'pointcloud', 10)
+        self.publisher = self.create_publisher(PointCloud2, 'input_cloud', 10)
 
         self.timer = self.create_timer(0.05, self.receive_udp)
 
     def receive_udp(self):
         try:
             data, _ = self.sock.recvfrom(65535) 
-            points = np.frombuffer(data, dtype=np.float32).reshape(3, -1).T 
+            points = np.frombuffer(data, dtype=np.float32).reshape(3, -1).T
             msg = self.create_pointcloud2(points)
             self.publisher.publish(msg)
         except BlockingIOError:
