@@ -1,0 +1,45 @@
+# === Python ===
+__pycache__/
+*.py[cod]
+*.egg-info/
+venv/
+.env
+.env.*
+
+# === ROS 2 build ===
+build/
+install/
+log/
+
+# === CMake files ===
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+
+# === VSCode ===
+.vscode/
+*.code-workspace
+
+# === Launch & pycache ===
+launch/__pycache__/
+*/__pycache__/
+
+# === Docker ===
+*.tar
+*.log
+*.pid
+*.sock
+
+# === Misc ===
+*.swp
+*~
+.DS_Store
+Thumbs.db
+
+# === Ignore compiled binaries ===
+*.out
+*.so
+*.a
+*.o
+*.obj
