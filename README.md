@@ -5,6 +5,9 @@ This ROS 2 project implements a full pipeline to estimate 6-DoF poses, combining
 > This project was developed in parallel with the [VirtualMoCap](https://github.com/loolirer/VirtualMoCap) project at the same research lab.
 > While VirtualMoCap provides a simulated multi-agent motion capture system, this project focuses on pose estimation through geometric alignment.
 
+![](docs/mock_pointcloud_demo.webm)
+![](docs/virtual_mocap_demo.webm)
+
 ## Packages
 
 ### `mocap_ros_driver`
