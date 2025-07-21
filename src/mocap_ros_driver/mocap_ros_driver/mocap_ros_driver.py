@@ -15,15 +15,15 @@ class MocapRosDriver(Node):
 
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.sock.bind((self.udp_ip, self.udp_port))
-        self.sock.setblocking(False)
 
         self.publisher = self.create_publisher(PointCloud2, 'input_cloud', 10)
 
-        self.timer = self.create_timer(0.05, self.receive_udp)
+        # TODO(lucas): change for a continuous loop
+        self.timer = self.create_timer(1.0/60.0, self.receive_udp)
 
     def receive_udp(self):
         try:
-            data, _ = self.sock.recvfrom(65535) 
+            data, _ = self.sock.recvfrom(1024) 
             points = np.frombuffer(data, dtype=np.float32).reshape(3, -1).T
             msg = self.create_pointcloud2(points)
             self.publisher.publish(msg)
