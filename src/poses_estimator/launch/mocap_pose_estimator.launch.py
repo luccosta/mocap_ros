@@ -29,6 +29,17 @@ def generate_launch_description():
     )
     ld.add_action(mocap_driver)
 
+    wave_rover_driver = Node(
+        package="wave_rover_ros_driver",
+        executable='wave_rover_ros_driver',
+        name='wave_rover_driver_node',
+        output='screen',
+        remappings=[
+            ('/cmd_vel', '/wave_rover_1/cmd_vel')
+        ],
+    )
+    ld.add_action(wave_rover_driver)
+
     poses_estimator = Node(
         package="icp_pose_estimator",
         executable='pointcloud_to_poses',
@@ -43,6 +54,23 @@ def generate_launch_description():
         ]
     )
     ld.add_action(poses_estimator)
+
+    go_to_goal = Node(
+        package="go_to_goal",
+        executable='go_to_goal',
+        name='go_to_goal_node',
+        output='screen',
+        parameters=[
+            {'wheel_radius': 0.5},
+            {'wheel_base': 0.5},
+        ],
+        remappings=[
+            ('/robot_pose', '/wave_rover_1/icp_pose'),
+            ('/target_pose', '/varinha/icp_pose'),
+            ('/cmd_vel', '/wave_rover_1/cmd_vel')
+        ],
+    )
+    ld.add_action(go_to_goal)
 
     rviz = Node(
         package='rviz2',
