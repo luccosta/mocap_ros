@@ -13,6 +13,9 @@ RUN apt-get update && apt-get install -y \
     ros-humble-launch* \
     && rm -rf /var/lib/apt/lists/*
 
+COPY requirements.txt ./requirements.txt
+RUN pip3 install --no-cache-dir -r requirements.txt
+
 ENV ROS_WS=/ros2_ws
 WORKDIR ${ROS_WS}
 
