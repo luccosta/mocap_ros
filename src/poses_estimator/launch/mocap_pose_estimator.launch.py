@@ -29,7 +29,7 @@ def generate_launch_description():
     )
     ld.add_action(mocap_driver)
 
-    wave_rover_driver = Node(
+    wave_rover_driver_1 = Node(
         package="wave_rover_ros_driver",
         executable='wave_rover_ros_driver',
         name='wave_rover_driver_node',
@@ -37,8 +37,25 @@ def generate_launch_description():
         remappings=[
             ('/cmd_vel', '/wave_rover_1/cmd_vel')
         ],
+        parameters=[
+            {'ip': "192.168.0.121"},
+        ]
     )
-    ld.add_action(wave_rover_driver)
+    ld.add_action(wave_rover_driver_1)
+
+    wave_rover_driver_2 = Node(
+        package="wave_rover_ros_driver",
+        executable='wave_rover_ros_driver',
+        name='wave_rover_driver_node',
+        output='screen',
+        remappings=[
+            ('/cmd_vel', '/wave_rover_2/cmd_vel')
+        ],
+        parameters=[
+            {'ip': "192.168.0.121"},
+        ]
+    )
+    ld.add_action(wave_rover_driver_2)
 
     poses_estimator = Node(
         package="icp_pose_estimator",
@@ -60,6 +77,7 @@ def generate_launch_description():
         executable='go_to_goal',
         name='go_to_goal_node',
         output='screen',
+        namespace="wave_rover_1",
         parameters=[
             {'wheel_radius': 0.5},
             {'wheel_base': 0.5},

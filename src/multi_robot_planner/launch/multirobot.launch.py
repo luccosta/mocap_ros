@@ -14,7 +14,9 @@ def generate_launch_description():
                 'corridor_width': 0.8,
                 'robot_radius': 0.25,
                 'v_max': 0.8,
+                'v_min': -0.8,
                 'w_max': 1.5,
+                'w_min': -1.5,
             }]
         )
     ])
