@@ -1,6 +1,6 @@
 import rclpy
 from rclpy.node import Node
-from geometry_msgs.msg import Pose, Twist
+from geometry_msgs.msg import PoseStamped, Twist
 import numpy as np
 
 class PID:
@@ -35,20 +35,20 @@ class GoToGoal(Node):
         super().__init__('go_to_goal')
 
         # Parameters
-        self.declare_parameter('wheel_radius', 0.0325)
-        self.declare_parameter('wheel_base', 0.115)
-        self.r = self.get_parameter('wheel_radius').get_parameter_value().double_value
-        self.s = self.get_parameter('wheel_base').get_parameter_value().double_value
+        self.declare_parameter('velocity_gain', 0.5)
+        self.declare_parameter('orientation_gain', 1.5)
+        self.K_p_vel = self.get_parameter('velocity_gain').get_parameter_value().double_value
+        self.K_p_ori = self.get_parameter('orientation_gain').get_parameter_value().double_value
 
-        self.VelocityController = PID(K_p=1.0, K_i=0.0, K_d=0.0, dt=0.05)
-        self.OrientationController = PID(K_p=3.0, K_i=0.0, K_d=0.0, dt=0.05)
+        self.VelocityController = PID(K_p=self.K_p_vel, K_i=0.0, K_d=0.0, dt=0.05)
+        self.OrientationController = PID(K_p=self.K_p_ori, K_i=0.0, K_d=0.0, dt=0.05)
 
         # Subscribers
         self.robot_pose = None
         self.target_pose = None
 
-        self.create_subscription(Pose, '/robot_pose', self.robot_pose_callback, 10)
-        self.create_subscription(Pose, '/target_pose', self.target_pose_callback, 10)
+        self.create_subscription(PoseStamped, '/robot_pose', self.robot_pose_callback, 10)
+        self.create_subscription(PoseStamped, '/target_pose', self.target_pose_callback, 10)
 
         # Publisher
         self.cmd_pub = self.create_publisher(Twist, '/cmd_vel', 10)
@@ -67,12 +67,12 @@ class GoToGoal(Node):
             return
 
         # Robot position and heading
-        pos = np.array([self.robot_pose.position.x, self.robot_pose.position.y])
-        yaw = self.get_yaw_from_quaternion(self.robot_pose.orientation)
+        pos = np.array([self.robot_pose.pose.position.x, self.robot_pose.pose.position.y])
+        yaw = self.get_yaw_from_quaternion(self.robot_pose.pose.orientation)
         front_vector = np.array([np.cos(yaw), np.sin(yaw)])
 
         # Target position
-        target_pos = np.array([self.target_pose.position.x, self.target_pose.position.y])
+        target_pos = np.array([self.target_pose.pose.position.x, self.target_pose.pose.position.y])
         path_vector = target_pos - pos
         target_distance = np.linalg.norm(path_vector)
 

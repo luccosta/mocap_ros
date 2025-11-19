@@ -4,6 +4,22 @@ from launch_ros.substitutions import FindPackageShare
 import os
 from launch.substitutions import PathJoinSubstitution
 
+gopigo_parameters = [
+    {'velocity_gain': 0.5},
+    {'orientation_gain': 1.5},
+]
+
+waverover_parameters = [
+    {'velocity_gain': 1.0},
+    {'orientation_gain': 3.0},
+]
+
+create_parameters = [
+    {'velocity_gain': 0.5},
+    {'orientation_gain': 1.5},
+]
+
+
 def generate_launch_description():
     pose_estimator_pkg = FindPackageShare("icp_pose_estimator")
 
@@ -34,8 +50,25 @@ def generate_launch_description():
         executable='wave_rover_ros_driver',
         name='wave_rover_driver_node',
         output='screen',
+        parameters=[
+            {'robot_ip': '192.168.0.157'},
+        ],
         remappings=[
-            ('/cmd_vel', '/wave_rover_1/cmd_vel')
+            ('/cmd_vel', '/waverover1/cmd_vel')
+        ],
+    )
+    ld.add_action(wave_rover_driver)
+
+    wave_rover_driver = Node(
+        package="wave_rover_ros_driver",
+        executable='wave_rover_ros_driver',
+        name='wave_rover_driver_node',
+        output='screen',
+        parameters=[
+            {'robot_ip': '192.168.0.159'},
+        ],
+        remappings=[
+            ('/cmd_vel', '/waverover2/cmd_vel')
         ],
     )
     ld.add_action(wave_rover_driver)
@@ -60,14 +93,11 @@ def generate_launch_description():
         executable='go_to_goal',
         name='go_to_goal_node',
         output='screen',
-        parameters=[
-            {'wheel_radius': 0.5},
-            {'wheel_base': 0.5},
-        ],
+        parameters=create_parameters,
         remappings=[
-            ('/robot_pose', '/wave_rover_1/icp_pose'),
-            ('/target_pose', '/varinha/icp_pose'),
-            ('/cmd_vel', '/wave_rover_1/cmd_vel')
+            ('/robot_pose', '/create3/icp_pose'),
+            ('/target_pose', '/create3/target_pose'),
+            ('/cmd_vel', '/create3/cmd_vel')
         ],
     )
     ld.add_action(go_to_goal)

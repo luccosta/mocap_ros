@@ -9,7 +9,7 @@ class CmdVelHttpBridge(Node):
         super().__init__('cmd_vel_http_bridge')
 
         # Declare and get IP parameter
-        self.declare_parameter('robot_ip', '192.168.0.131')
+        self.declare_parameter('robot_ip', '192.168.0.136')
         self.robot_ip = self.get_parameter('robot_ip').get_parameter_value().string_value
 
         # Subscribe to /cmd_vel
@@ -23,8 +23,8 @@ class CmdVelHttpBridge(Node):
         # Last received time
         self.last_cmd_time = self.get_clock().now()
 
-        # Watchdog timer: checks every 200ms
-        self.watchdog_timer = self.create_timer(0.2, self.watchdog_callback)
+        # Watchdog timer: checks every 50ms
+        self.watchdog_timer = self.create_timer(0.05, self.watchdog_callback)
 
         self.get_logger().info(f'Listening to /cmd_vel and forwarding to {self.robot_ip}')
 
@@ -38,7 +38,7 @@ class CmdVelHttpBridge(Node):
 
     def watchdog_callback(self):
         now = self.get_clock().now()
-        timeout = rclpy.duration.Duration(seconds=0.5)
+        timeout = rclpy.duration.Duration(seconds=1.0)
 
         if now - self.last_cmd_time > timeout:
             self.send_command(0.0, 0.0)
