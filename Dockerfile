@@ -13,6 +13,15 @@ RUN apt-get update && apt-get install -y \
     ros-humble-launch* \
     && rm -rf /var/lib/apt/lists/*
 
+RUN apt-get update && apt-get install -y \
+        ros-humble-irobot-create-msgs \
+        ros-humble-irobot-create-ignition-sim \
+        ros-humble-irobot-create-gazebo-sim \
+        ros-humble-irobot-create-nodes \
+    && rm -rf /var/lib/apt/lists/*
+
+ENV RMW_IMPLEMENTATION=rmw_fastrtps_cpp
+
 COPY requirements.txt ./requirements.txt
 RUN pip3 install --no-cache-dir -r requirements.txt
 
