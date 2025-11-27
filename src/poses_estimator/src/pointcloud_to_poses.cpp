@@ -203,10 +203,11 @@ private:
         auto particle_swarm = std::vector<Eigen::Matrix4f>();
         for (auto & robot : robots_) {
             double lower_fitness = std::numeric_limits<double>::max();
-            // TODO: rotate in the last pose direction
-            auto next_pose = robot.last_pose + Eigen::Affine3f(robot.last_movement, robot.last_pose.yaw());
+            Eigen::Matrix4f next_pose = robot.last_pose;
+            next_pose.block<3,1>(0,3).noalias() +=
+                robot.last_pose.block<3,3>(0,0) * robot.last_movement.block<3,1>(0,3);
 
-            auto robot_particle_swarm = generate_pose_particles(next_pose)
+            auto robot_particle_swarm = generate_pose_particles(next_pose);
             for (const auto & particle : robot_particle_swarm) {
                 PointCloud output_cloud;
                 icp_.align(output_cloud, particle);
