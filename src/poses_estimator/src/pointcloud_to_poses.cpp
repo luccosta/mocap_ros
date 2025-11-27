@@ -1,6 +1,7 @@
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <geometry_msgs/msg/pose_stamped.hpp>
+#include <geometry_msgs/msg/pose_array.hpp>
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
 #include <pcl/filters/extract_indices.h>
@@ -10,10 +11,16 @@
 #include <pcl/registration/icp.h>
 #include <pcl_conversions/pcl_conversions.h>
 #include <yaml-cpp/yaml.h>
+#include <Eigen/Dense>
+#include <Eigen/Geometry>
+#include <random>
+#include <limits>
+#include <cmath>
 #include <vector>
 #include <string>
 #include <memory>
 #include <algorithm>
+#include <stdexcept>
 
 using PointT = pcl::PointXYZ;
 using PointCloud = pcl::PointCloud<PointT>;
@@ -46,13 +53,13 @@ public:
             "icp_transformation_epsilon", 0.1);
         double icp_euclidian_fitness_epsilon = this->declare_parameter<double>(
             "icp_euclidian_fitness_epsilon", 1.0);
-        double random_particle_x_stddev_ = this->declare_parameter<double>(
+        random_particle_x_stddev_ = this->declare_parameter<double>(
             "random_particle_x_stddev", 0.1);
-        double random_particle_y_stddev_ = this->declare_parameter<double>(
+        random_particle_y_stddev_ = this->declare_parameter<double>(
             "random_particle_y_stddev", 0.1);
-        double random_particle_z_stddev_ = this->declare_parameter<double>(
+        random_particle_z_stddev_ = this->declare_parameter<double>(
             "random_particle_z_stddev", 0.1);
-        double random_particle_yaw_stddev_ = this->declare_parameter<double>(
+        random_particle_yaw_stddev_ = this->declare_parameter<double>(
             "random_particle_yaw_stddev", 0.1);
         int icp_max_iters = this->declare_parameter<int>(
             "icp_max_iters", 30);
@@ -72,6 +79,8 @@ public:
             robot.pose_pub = this->create_publisher<geometry_msgs::msg::PoseStamped>(robot.name + "/icp_pose", 10);
         }
 
+        particle_swarm_pub_ = this->create_publisher<geometry_msgs::msg::PoseArray>("particle_swarm", 10);
+
         initialized_ = false;
     }
 
@@ -81,6 +90,13 @@ private:
     bool initialized_;
     
     rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr cloud_sub_;
+    rclcpp::Publisher<geometry_msgs::msg::PoseArray>::SharedPtr particle_swarm_pub_;
+    std::random_device rand_device_;
+    std::mt19937 random_num_gen_;
+    double random_particle_x_stddev_{0.0};
+    double random_particle_y_stddev_{0.0};
+    double random_particle_z_stddev_{0.0};
+    double random_particle_yaw_stddev_{0.0};
 
     void load_clouds_from_yaml(const std::string& filepath) {
         YAML::Node root = YAML::LoadFile(filepath);
@@ -138,7 +154,9 @@ private:
             pose_msg.header = msg.header;
             pose_msg.header.frame_id = "map";
 
-            if (icp_.hasConverged()) {
+            apply_constant_velocity_model(robot);
+
+            /*if (icp_.hasConverged()) {
                 Eigen::Matrix4f map_to_base_link = icp_.getFinalTransformation();
                 robot.last_pose = map_to_base_link;
                 
@@ -153,7 +171,9 @@ private:
                 robot.pose_pub->publish(pose_msg);
 
                 RCLCPP_WARN_STREAM(this->get_logger(), "ICP for " << robot.name << " did not converge");
-            }
+            }*/
+
+            pose_msg.pose = robot.last_pose;
 
             robot.pose_pub->publish(pose_msg);
         }
@@ -194,30 +214,50 @@ private:
 
                 Eigen::Matrix4f initial_guess = tf.matrix();
 
-                particle_swarm.extend(generate_pose_particles(initial_guess));
+                auto particles = generate_pose_particles(initial_guess);
+                particle_swarm.insert(
+                    particle_swarm.end(), particles.begin(), particles.end());
             }
         }
+        return particle_swarm;
     }
 
-    std::vector<Eigen::Matrix4f> apply_constant_velocity_model() {
-        auto particle_swarm = std::vector<Eigen::Matrix4f>();
-        for (auto & robot : robots_) {
-            double lower_fitness = std::numeric_limits<double>::max();
-            Eigen::Matrix4f next_pose = robot.last_pose;
-            next_pose.block<3,1>(0,3).noalias() +=
-                robot.last_pose.block<3,3>(0,0) * robot.last_movement.block<3,1>(0,3);
+    std::vector<Eigen::Matrix4f> apply_constant_velocity_model(Robot & robot) {
+        std::vector<Eigen::Matrix4f> particle_swarm;
+        double lower_fitness = std::numeric_limits<double>::max();
+        Eigen::Matrix4f next_pose = robot.last_pose;
 
-            auto robot_particle_swarm = generate_pose_particles(next_pose);
-            for (const auto & particle : robot_particle_swarm) {
-                PointCloud output_cloud;
-                icp_.align(output_cloud, particle);
-                auto fitness_score = icp_.getFitnessScore();
+        next_pose.block<3,1>(0,3).noalias() +=
+            robot.last_pose.block<3,3>(0,0) * robot.last_movement.block<3,1>(0,3);
 
-                if (fitness_score < lower_fitness) {
-                    lower_fitness = fitness_score;
-                    robot.last_pose = icp_.getFinalTransformation();
+        auto robot_particle_swarm = generate_pose_particles(next_pose);
+        particle_swarm.insert(
+            particle_swarm.end(), robot_particle_swarm.begin(), robot_particle_swarm.end());
+
+        for (const auto & particle : robot_particle_swarm) {
+            PointCloud output_cloud;
+            icp_.align(output_cloud, particle);
+            auto fitness_score = icp_.getFitnessScore();
+
+            if (fitness_score < lower_fitness) {
+                lower_fitness = fitness_score;
+                robot.last_pose = icp_.getFinalTransformation();
             }
         }
+
+        geometry_msgs::msg::PoseArray swarm_msg;
+        swarm_msg.header.frame_id = "map";
+        swarm_msg.header.stamp = now();
+        swarm_msg.poses.reserve(particle_swarm.size());
+        for (const auto & particle_pose : particle_swarm) {
+            swarm_msg.poses.push_back(pose_from_matrix(particle_pose));
+        }
+
+        if (particle_swarm_pub_) {
+            particle_swarm_pub_->publish(swarm_msg);
+        }
+
+        return particle_swarm;
     }
 
     void initial_search(std::shared_ptr<PointCloud> cloud) {
@@ -268,6 +308,8 @@ private:
         for (size_t i = 0; i < n; ++i)
             for (size_t j = i + 1; j < n; ++j)
                 distances.push_back(points_distance(cloud.points[i], cloud.points[j]));
+
+        return distances;
     }
 
     std::vector<size_t> get_points_indexes_from_distance_index(size_t k, size_t n) {
