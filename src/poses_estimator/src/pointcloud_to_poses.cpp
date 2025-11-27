@@ -23,6 +23,7 @@ struct Robot {
     std::string name;
 
     Eigen::Matrix4f last_pose;
+    Eigen::Matrix4f last_movement;
 
     rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr pose_pub;
 
@@ -45,6 +46,14 @@ public:
             "icp_transformation_epsilon", 0.1);
         double icp_euclidian_fitness_epsilon = this->declare_parameter<double>(
             "icp_euclidian_fitness_epsilon", 1.0);
+        double random_particle_x_stddev_ = this->declare_parameter<double>(
+            "random_particle_x_stddev", 0.1);
+        double random_particle_y_stddev_ = this->declare_parameter<double>(
+            "random_particle_y_stddev", 0.1);
+        double random_particle_z_stddev_ = this->declare_parameter<double>(
+            "random_particle_z_stddev", 0.1);
+        double random_particle_yaw_stddev_ = this->declare_parameter<double>(
+            "random_particle_yaw_stddev", 0.1);
         int icp_max_iters = this->declare_parameter<int>(
             "icp_max_iters", 30);
         
@@ -150,24 +159,67 @@ private:
         }
     }
 
-    void initial_search(std::shared_ptr<PointCloud> cloud) {
-        /* Eigen::Vector4d mean_state{0.0, 0.0, 0.0, 0.0};
+    std::vector<Eigen::Matrix4f> generate_pose_particles(const Eigen::Matrix4f& pose, int number_of_particles=10) {
+        auto particles = std::vector<Eigen::Matrix4f>();
         auto random_num_gen = std::make_unique<std::mt19937>(rand_device());
 
-        auto x_noise_dist = std::normal_distribution<double>(0.0, 0.1);
-        auto y_noise_dist = std::normal_distribution<double>(0.0, 0.1);
-        auto z_noise_dist = std::normal_distribution<double>(0.0, 0.1);
-        auto yaw_noise_dist = std::normal_distribution<double>(0.0, 0.1);
-
-        auto number_of_particles = 100;
+        auto x_noise_dist = std::normal_distribution<double>(0.0, random_particle_x_stddev_);
+        auto y_noise_dist = std::normal_distribution<double>(0.0, random_particle_y_stddev_);
+        auto z_noise_dist = std::normal_distribution<double>(0.0, random_particle_z_stddev_);
+        auto yaw_noise_dist = std::normal_distribution<double>(0.0, random_particle_yaw_stddev_);
 
         for (size_t i = 0; i < number_of_particles; ++i) {
-            mean_state.x() + x_noise_dist(*random_num_gen);
-            mean_state.y() + y_noise_dist(*random_num_gen);
-            mean_state.z() + z_noise_dist(*random_num_gen);
-            mean_state.yaw() + yaw_noise_dist(*random_num_gen);
-        } */
+            particles.push_back(
+                Eigen::Matrix4f {
+                    pose.x() + x_noise_dist(*random_num_gen);
+                    pose.y() + y_noise_dist(*random_num_gen);
+                    pose.z() + z_noise_dist(*random_num_gen);
+                    pose.yaw() + yaw_noise_dist(*random_num_gen);
+            });
+        }
 
+        return particles;
+    }
+
+    std::vector<Eigen::Matrix4f> full_particle_swarm(std::shared_ptr<PointCloud> cloud) {
+        auto particle_swarm = std::vector<Eigen::Matrix4f>();
+        for (const auto& pt : cloud->points) {
+            for (int i = 0; i < 360; i++) {
+                auto yaw = i * M_PI / 180;
+                
+                Eigen::Affine3f tf = pcl::getTransformation(
+                    pt.x, pt.y, pt.z,
+                    0.0f, 0.0f, yaw
+                );
+
+                Eigen::Matrix4f initial_guess = tf.matrix();
+
+                particle_swarm.extend(generate_pose_particles(initial_guess));
+            }
+        }
+    }
+
+    std::vector<Eigen::Matrix4f> apply_constant_velocity_model() {
+        auto particle_swarm = std::vector<Eigen::Matrix4f>();
+        for (auto & robot : robots_) {
+            double lower_fitness = std::numeric_limits<double>::max();
+            // TODO: rotate in the last pose direction
+            auto next_pose = robot.last_pose + Eigen::Affine3f(robot.last_movement, robot.last_pose.yaw());
+
+            auto robot_particle_swarm = generate_pose_particles(next_pose)
+            for (const auto & particle : robot_particle_swarm) {
+                PointCloud output_cloud;
+                icp_.align(output_cloud, particle);
+                auto fitness_score = icp_.getFitnessScore();
+
+                if (fitness_score < lower_fitness) {
+                    lower_fitness = fitness_score;
+                    robot.last_pose = icp_.getFinalTransformation();
+            }
+        }
+    }
+
+    void initial_search(std::shared_ptr<PointCloud> cloud) {
         for (auto & robot : robots_) {
             double lower_fitness = std::numeric_limits<double>::max();
             Eigen::Matrix4f robot_initial_pose;
