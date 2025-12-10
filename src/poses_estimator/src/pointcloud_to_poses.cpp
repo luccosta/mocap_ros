@@ -33,6 +33,7 @@ struct Robot {
     Eigen::Matrix4f last_movement;
 
     rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr pose_pub;
+    rclcpp::Publisher<geometry_msgs::msg::PoseArray>::SharedPtr particle_swarm_pub;
 
     Robot(std::shared_ptr<PointCloud> reference_cloud, std::string name) : 
         reference_cloud(reference_cloud), name(name) {
@@ -42,7 +43,7 @@ struct Robot {
 
 class ICPNode : public rclcpp::Node {
 public:
-    ICPNode() : Node("icp_pose_estimator") {        
+    ICPNode() : Node("icp_pose_estimator"), random_num_gen_(rand_device_()) {        
         std::string clouds_file_path = this->declare_parameter<std::string>(
             "clouds_file_path", "config/clouds.yaml");
         
@@ -77,9 +78,8 @@ public:
         
         for (auto & robot : robots_) {
             robot.pose_pub = this->create_publisher<geometry_msgs::msg::PoseStamped>(robot.name + "/icp_pose", 10);
+            robot.particle_swarm_pub = this->create_publisher<geometry_msgs::msg::PoseArray>(robot.name + "/particle_swarm", 10);
         }
-
-        particle_swarm_pub_ = this->create_publisher<geometry_msgs::msg::PoseArray>("particle_swarm", 10);
 
         initialized_ = false;
     }
@@ -173,7 +173,7 @@ private:
                 RCLCPP_WARN_STREAM(this->get_logger(), "ICP for " << robot.name << " did not converge");
             }*/
 
-            pose_msg.pose = robot.last_pose;
+            pose_msg.pose = pose_from_matrix(robot.last_pose);
 
             robot.pose_pub->publish(pose_msg);
         }
@@ -181,7 +181,7 @@ private:
 
     std::vector<Eigen::Matrix4f> generate_pose_particles(const Eigen::Matrix4f& pose, int number_of_particles=10) {
         auto particles = std::vector<Eigen::Matrix4f>();
-        auto random_num_gen = std::make_unique<std::mt19937>(rand_device());
+        auto random_num_gen = std::make_unique<std::mt19937>(rand_device_());
 
         auto x_noise_dist = std::normal_distribution<double>(0.0, random_particle_x_stddev_);
         auto y_noise_dist = std::normal_distribution<double>(0.0, random_particle_y_stddev_);
@@ -189,13 +189,20 @@ private:
         auto yaw_noise_dist = std::normal_distribution<double>(0.0, random_particle_yaw_stddev_);
 
         for (size_t i = 0; i < number_of_particles; ++i) {
-            particles.push_back(
-                Eigen::Matrix4f {
-                    pose.x() + x_noise_dist(*random_num_gen);
-                    pose.y() + y_noise_dist(*random_num_gen);
-                    pose.z() + z_noise_dist(*random_num_gen);
-                    pose.yaw() + yaw_noise_dist(*random_num_gen);
-            });
+            Eigen::Matrix4f particle = pose;
+
+            Eigen::Vector3f translation_noise(
+                x_noise_dist(*random_num_gen),
+                y_noise_dist(*random_num_gen),
+                z_noise_dist(*random_num_gen));
+            particle.block<3,1>(0,3) += translation_noise;
+
+            float yaw_noise = yaw_noise_dist(*random_num_gen);
+            Eigen::Matrix3f yaw_rot =
+                Eigen::AngleAxisf(yaw_noise, Eigen::Vector3f::UnitZ()).toRotationMatrix();
+            particle.block<3,3>(0,0) = particle.block<3,3>(0,0) * yaw_rot;
+
+            particles.push_back(particle);
         }
 
         return particles;
@@ -253,9 +260,7 @@ private:
             swarm_msg.poses.push_back(pose_from_matrix(particle_pose));
         }
 
-        if (particle_swarm_pub_) {
-            particle_swarm_pub_->publish(swarm_msg);
-        }
+        robot.particle_swarm_pub->publish(swarm_msg);
 
         return particle_swarm;
     }
@@ -338,13 +343,14 @@ private:
         throw std::runtime_error("The choosen sides should contain a vertice in common.");
     }
 
-    size_t find_oposite_element(const std::vector<size_t>& a, size_t& current_element)
+    size_t find_opposite_element(const std::vector<size_t>& a, size_t current_element)
     {
         for (const size_t& x : a)
         {
-            if (x == current_element)
+            if (x != current_element)
                 return x;
         }
+        throw std::runtime_error("No opposite element found.");
     }
 
     Eigen::Matrix3f rotation_from_a_to_b(const Eigen::Vector3f& a, const Eigen::Vector3f& b)
@@ -419,7 +425,7 @@ private:
         auto template_common_point_index = 
             find_common_element(template_largest_side_points_index, template_shortest_side_points_index);
         auto template_other_point_index = 
-            find_oposite_element(template_largest_side_points_index, template_common_point_index);
+            find_opposite_element(template_largest_side_points_index, template_common_point_index);
 
         auto template_translation = eigen_from_pcl_point(template_pc.points[template_common_point_index]);
         auto template_rotation = rotation_from_a_to_b(template_translation,
@@ -436,7 +442,7 @@ private:
         auto cluster_common_point_index = 
             find_common_element(cluster_largest_side_points_index, cluster_shortest_side_points_index);
         auto cluster_other_point_index = 
-            find_oposite_element(cluster_largest_side_points_index, cluster_common_point_index);
+            find_opposite_element(cluster_largest_side_points_index, cluster_common_point_index);
 
         auto cluster_translation = eigen_from_pcl_point(cluster.points[cluster_common_point_index]);
         auto cluster_rotation = rotation_from_a_to_b(cluster_translation,
