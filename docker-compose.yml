@@ -1,0 +1,13 @@
+services:
+  icp:
+    image: icp_ros2_image:latest
+    container_name: icp_container
+    network_mode: host
+    environment:
+      - DISPLAY=${DISPLAY}
+    volumes:
+      - ./src/:/ros2_ws/src
+      - /tmp/.X11-unix:/tmp/.X11-unix
+      - ./bash_history:/root/.bash_history
+    tty: true          # equivalent to -t
+    stdin_open: true   # equivalent to -i
