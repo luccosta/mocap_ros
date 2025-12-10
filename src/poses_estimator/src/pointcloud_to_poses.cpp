@@ -52,14 +52,16 @@ public:
             "icp_max_correspondence", 0.05);
         double icp_transformation_epsilon = this->declare_parameter<double>(
             "icp_transformation_epsilon", 0.1);
+        double icp_transformation_rotation_epsilon = this->declare_parameter<double>(
+            "icp_transformation_rotation_epsilon", 0.01);
         double icp_euclidian_fitness_epsilon = this->declare_parameter<double>(
             "icp_euclidian_fitness_epsilon", 1.0);
         random_particle_x_stddev_ = this->declare_parameter<double>(
-            "random_particle_x_stddev", 0.1);
+            "random_particle_x_stddev", 0.05);
         random_particle_y_stddev_ = this->declare_parameter<double>(
-            "random_particle_y_stddev", 0.1);
+            "random_particle_y_stddev", 0.05);
         random_particle_z_stddev_ = this->declare_parameter<double>(
-            "random_particle_z_stddev", 0.1);
+            "random_particle_z_stddev", 0.01);
         random_particle_yaw_stddev_ = this->declare_parameter<double>(
             "random_particle_yaw_stddev", 0.1);
         int icp_max_iters = this->declare_parameter<int>(
@@ -68,6 +70,7 @@ public:
         icp_.setMaxCorrespondenceDistance(icp_max_correspondence);
         icp_.setMaximumIterations(icp_max_iters);
         icp_.setTransformationEpsilon(icp_transformation_epsilon);
+        icp_.setTransformationRotationEpsilon(icp_transformation_rotation_epsilon);
         icp_.setEuclideanFitnessEpsilon(icp_euclidian_fitness_epsilon);
 
         load_clouds_from_yaml(clouds_file_path);
@@ -247,8 +250,17 @@ private:
             auto fitness_score = icp_.getFitnessScore();
 
             if (fitness_score < lower_fitness) {
+                Eigen::Matrix4f pose = icp_.getFinalTransformation();
+                /*float yaw_diff = yaw_from_matrix(robot.last_pose) - yaw_from_matrix(pose);
+                yaw_diff = std::atan2(std::sin(yaw_diff), std::cos(yaw_diff));
+
+                if (std::abs(yaw_diff) < 5e-2) {
+                    lower_fitness = fitness_score;
+                    robot.last_pose = pose;
+                } */
+
                 lower_fitness = fitness_score;
-                robot.last_pose = icp_.getFinalTransformation();
+                robot.last_pose = pose;
             }
         }
 
@@ -388,6 +400,10 @@ private:
         T.block<3,1>(0,3) = translation;
 
         return T;
+    }
+
+    float yaw_from_matrix(const Eigen::Matrix4f& matrix) {
+        return std::atan2(matrix(1,0), matrix(0,0));
     }
 
     Eigen::Vector3f eigen_from_pcl_point(const pcl::PointXYZ& point) {
