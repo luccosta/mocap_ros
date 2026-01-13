@@ -1,0 +1,8 @@
+ifopt_multirobot_planner:
+  ros__parameters:
+    dt: 0.2
+    H: 40
+    corridor_width: 0.8
+    robot_radius: 0.25
+    v_max: 0.8
+    w_max: 1.5
